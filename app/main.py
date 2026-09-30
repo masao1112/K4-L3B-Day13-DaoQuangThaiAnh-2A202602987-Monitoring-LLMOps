@@ -48,9 +48,20 @@ async def metrics() -> dict:
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: Request, body: ChatRequest) -> ChatResponse:
-    # TODO: Enrich logs with request context (user_id_hash, session_id, feature, model, env)
-    # bind_contextvars(...)
-    
+    # Bổ sung ngữ cảnh nghiệp vụ vào structlog (Log Enrichment):
+    # - user_id_hash: mã băm người dùng để bảo vệ PII mà vẫn nhóm được người dùng
+    # - session_id: ID phiên hội thoại để theo dõi luồng chat
+    # - feature: tên tính năng (qa, summary, ...)
+    # - model: định danh mô hình LLM đang sử dụng
+    # - env: môi trường triển khai (dev/staging/production)
+    bind_contextvars(
+        user_id_hash=hash_user_id(body.user_id),
+        session_id=body.session_id,
+        feature=body.feature,
+        model=agent.llm.model,
+        env=os.getenv("APP_ENV", "dev"),
+    )
+
     log.info(
         "request_received",
         service="api",
